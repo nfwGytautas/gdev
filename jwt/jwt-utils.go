@@ -11,7 +11,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/nfwGytautas/mstk/lib/gdev/array"
+	"github.com/nfwGytautas/gdev/array"
 )
 
 // PUBLIC TYPES
