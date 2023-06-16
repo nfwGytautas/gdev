@@ -196,7 +196,7 @@ func extractToken(c *gin.Context) (string, error) {
 		if len(strings.Split(tokenString, " ")) == 2 {
 			tokenString = strings.Split(tokenString, " ")[1]
 		} else {
-			return "", errors.New("invalid request")
+			return "", errors.New("token not found in parameters nor headers")
 		}
 	}
 
