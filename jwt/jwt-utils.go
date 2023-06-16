@@ -73,6 +73,7 @@ func AuthenticationMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Set("TokenInfo", info)
 		c.Next()
 	}
 }
@@ -113,6 +114,7 @@ func AuthorizationMiddleware(roles []string) gin.HandlerFunc {
 			return
 		}
 
+		c.Set("TokenInfo", info)
 		c.Next()
 	}
 }
