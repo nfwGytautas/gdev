@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -44,17 +45,30 @@ r.Use(common.JwtAuthenticationMiddleware())
 */
 func AuthenticationMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		info, err := ParseToken(c)
+		tokenString, err := extractToken(c)
 		if err != nil {
 			log.Println(err)
-			c.String(http.StatusInternalServerError, "Token")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			c.Abort()
+			return
+		}
+
+		info, err := ParseToken(tokenString)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
 			c.Abort()
 			return
 		}
 
 		if !info.Valid {
-			c.String(http.StatusUnauthorized, "Unauthorized")
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Unauthorized access",
+			})
 			c.Abort()
 			return
 		}
@@ -71,15 +85,30 @@ r.Use(common.AuthorizationMiddleware([]string{"role"}))
 */
 func AuthorizationMiddleware(roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		info, err := ParseToken(c)
+		tokenString, err := extractToken(c)
 		if err != nil {
 			log.Println(err)
-			c.String(http.StatusInternalServerError, "Token")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
 			c.Abort()
+			return
+		}
+
+		info, err := ParseToken(tokenString)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			c.Abort()
+			return
 		}
 
 		if !array.IsElementInArray(roles, info.Role) {
-			c.String(http.StatusUnauthorized, "Access denied")
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "Access for recourse denied",
+			})
 			c.Abort()
 			return
 		}
@@ -91,23 +120,9 @@ func AuthorizationMiddleware(roles []string) gin.HandlerFunc {
 /*
 Parse a token from gin context
 */
-func ParseToken(c *gin.Context) (TokenInfo, error) {
+func ParseToken(tokenString string) (TokenInfo, error) {
 	result := TokenInfo{}
 	result.Valid = false
-
-	tokenString := c.Query("token")
-
-	if tokenString == "" {
-		// Token empty check if it is inside Authorization header
-		tokenString = c.Request.Header.Get("Authorization")
-
-		// Since this is bearer token we need to parse the token out
-		if len(strings.Split(tokenString, " ")) == 2 {
-			tokenString = strings.Split(tokenString, " ")[1]
-		} else {
-			return result, errors.New("invalid request")
-		}
-	}
 
 	jwtToken, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		_, ok := token.Method.(*jwt.SigningMethodHMAC)
@@ -145,5 +160,43 @@ func ParseToken(c *gin.Context) (TokenInfo, error) {
 	return result, nil
 }
 
+/*
+Generates a JWT token
+*/
+func GenerateToken(id uint, role string) (string, error) {
+	token := jwt.New(jwt.SigningMethodHS512)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["user_id"] = id
+	claims["role"] = role
+	claims["expiration"] = time.Now().Add(10 * time.Minute)
+
+	tokenString, err := token.SignedString([]byte(APISecret))
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+}
+
 // PRIVATE FUNCTIONS
 // ========================================================================
+
+/*
+Extracts token from either query or header
+*/
+func extractToken(c *gin.Context) (string, error) {
+	tokenString := c.Query("token")
+
+	if tokenString == "" {
+		// Token empty check if it is inside Authorization header
+		tokenString = c.Request.Header.Get("Authorization")
+
+		// Since this is bearer token we need to parse the token out
+		if len(strings.Split(tokenString, " ")) == 2 {
+			tokenString = strings.Split(tokenString, " ")[1]
+		} else {
+			return "", errors.New("invalid request")
+		}
+	}
+
+	return tokenString, nil
+}
