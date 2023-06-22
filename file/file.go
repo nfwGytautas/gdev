@@ -38,6 +38,19 @@ func CreateIfNotExists(dir string, perm os.FileMode) error {
 	return nil
 }
 
+func IsDir(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	if fileInfo.IsDir() {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 /*
 Get all directories inside the root directory
 */
