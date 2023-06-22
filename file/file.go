@@ -2,8 +2,8 @@ package file
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
-	"io/fs"
 	"os"
 )
 
@@ -18,8 +18,24 @@ import (
 
 // Check if file exists
 func Exists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+
+// Create file if not exists
+func CreateIfNotExists(dir string, perm os.FileMode) error {
+	if Exists(dir) {
+		return nil
+	}
+
+	if err := os.MkdirAll(dir, perm); err != nil {
+		return fmt.Errorf("failed to create directory: '%s', error: '%s'", dir, err.Error())
+	}
+
+	return nil
 }
 
 /*
@@ -118,21 +134,6 @@ func Append(file, content string) error {
 
 	err = f.Close()
 	return err
-}
-
-// Copy source to target
-func CopyFile(source, target string) error {
-	data, err := os.ReadFile(source)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(target, data, fs.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // PRIVATE FUNCTIONS
